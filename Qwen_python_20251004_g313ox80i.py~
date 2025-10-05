@@ -1,0 +1,283 @@
+import os
+import shutil
+import requests
+from numba.core.typing.builtins import Print
+from openpyxl import load_workbook
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, PatternFill
+import json # Импортируем json для сериализации сложных объектов
+
+# === Настройки ===
+WEBHOOK_URL = "https://labkabinet.bitrix24.ru/rest/6808/9wti8nc7t0j9r2c7/"
+DEAL_ID = 25034
+TEMPLATE_FILE = "Расчет_шаблон_V1.xlsx"
+OUTPUT_DIR = "Расчеты"
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, f"расчет_{DEAL_ID}.xlsx")
+
+
+# === 1. Получение строк товаров из сделки ===
+def get_deal_product(deal_id):
+    url = f"{WEBHOOK_URL}crm.deal.productrows.get"
+    response = requests.post(url, json={"id": deal_id})
+    response.raise_for_status()
+    return response.json().get("result", [])
+
+# === 2. Получение данных товара из каталога магазина ===
+def get_catalog_product(product_id):
+    url = f"{WEBHOOK_URL}catalog.product.get"
+    response = requests.post(url, json={"id": product_id})
+    if response.status_code == 200:
+        return response.json().get("result", {})
+    else:
+        print(f"⚠️ Не удалось загрузить товар ID={product_id}")
+        return None
+
+from openpyxl import load_workbook
+
+
+# === 3. Полная выгрузка товаров в Excel с динамическими полями ===
+def export_products_to_db(deal_products, output_path):
+    """
+    Экспортирует данные о товарах из сделки в Excel файл с динамическими столбцами.
+    Столбцы определяются на основе всех уникальных ключей из данных товаров (как из сделки, так и из каталога).
+    :param deal_products: Список словарей, представляющих строки товаров из сделки (результат get_deal_product).
+    :param output_path: Путь к Excel файлу для сохранения.
+    """
+    # Список для хранения всех обработанных строк (с объединенными данными)
+    all_rows_data = []
+    # Множество для хранения всех уникальных ключей (названий столбцов)
+    all_keys = set()
+
+    print("Обработка товаров из сделки...")
+    for product_row in deal_products:
+        # product_row - это строка из сделки, содержит данные из crm.deal.productrows.get
+        # Пример: {"ID": "123", "PRODUCT_ID": "456", "PRODUCT_NAME": "Товар", ...}
+
+        # Извлекаем ID товара в каталоге из строки сделки
+        catalog_product_id = product_row.get("PRODUCT_ID")
+
+        # Получаем данные из каталога
+        catalog_data = {}
+        if catalog_product_id:
+            catalog_data = get_catalog_product(
+                catalog_product_id) or {}  # Используем пустой словарь, если не удалось получить
+
+        # Объединяем данные из строки сделки и каталога
+        # Приоритет (или порядок) можно изменить. Здесь сначала данные из сделки, потом из каталога.
+        # Поля из каталога могут перезаписать поля из строки сделки, если ключи совпадают.
+        # Чтобы избежать этого, можно добавить префиксы, например, 'CATALOG_' к полям из каталога.
+        # Но для полной выгрузки и простоты просто объединим.
+
+        # Важно: Добавим префиксы, чтобы различать поля
+        combined_row = {}
+        for key, value in product_row.items():
+            combined_row[f"DEAL_{key}"] = value
+
+        for key, value in catalog_data.items():
+            # Избегаем конфликта имен между DEAL_ и CATALOG_
+            # Но в данном случае, если ключи совпадают, CATALOG_ перезапишет DEAL_
+            # Лучше добавить префикс CATALOG_ для данных каталога
+            combined_row[f"CATALOG_{key}"] = value
+
+        # Добавляем объединенную строку в список
+        all_rows_data.append(combined_row)
+
+        # Обновляем множество всех ключей
+        all_keys.update(combined_row.keys())
+
+    # Преобразуем множество в отсортированный список для стабильности порядка столбцов
+    headers = sorted(list(all_keys))
+
+    print(f"Найдено уникальных полей (столбцов): {len(headers)}")
+    if not headers:
+        print("Предупреждение: Не найдено никаких данных для экспорта.")
+        return
+
+    # Создаем новую книгу Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Товары_Сделки"
+
+    # Записываем заголовки
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        # Стилизуем заголовки (опционально)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+
+    # Записываем данные
+    for row_num, row_data in enumerate(all_rows_data, 2):  # Начинаем с 2 строки
+        for col_num, header in enumerate(headers, 1):
+            # Получаем значение для текущего столбца, если ключ существует в строке данных
+            value = row_data.get(header, "")  # Возвращаем пустую строку, если ключ отсутствует
+            ws.cell(row=row_num, column=col_num, value=value)
+
+    # Автоподгонка ширины столбцов (может быть медленно)
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)  # Ограничиваем максимальную ширину
+        ws.column_dimensions[column_letter].width = adjusted_width
+
+    # Сохраняем файл
+    wb.save(output_path)
+    print(f"Полная выгрузка товаров успешно экспортирована в {output_path}")
+    print(f"Файл содержит {len(all_rows_data)} строк товаров и {len(headers)} столбцов.")
+
+
+def fill_excel(products, output_path):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    shutil.copy(TEMPLATE_FILE, output_path)
+
+    wb = load_workbook(output_path)
+    ws_calc = wb["Калькулятор"]
+    ws_ship = wb["Доставка"]
+
+    # === 1. Лист "Доставка" — заполняем только входные данные ===
+    # Очищаем только входные столбцы (A–H), формулы в I–K останутся
+    for row in range(3, 43):
+        for col in "ABCDEFGH":
+            ws_ship[f"{col}{row}"].value = None
+
+    for i, p in enumerate(products):
+        r = i + 3
+        ws_ship[f"B{r}"] = p["name"]
+        ws_ship[f"C{r}"] = p["quantity"]
+        ws_ship[f"D{r}"] = p["supplier"]
+        ws_ship[f"E{r}"] = p["shipping_city"]
+        ws_ship[f"F{r}"] = p["weight_g"]
+        ws_ship[f"G{r}"] = p["length_mm"]
+        ws_ship[f"H{r}"] = p["width_mm"]
+        ws_ship[f"I{r}"] = p["height_mm"]
+
+    # Строка "Итого" на листе "Доставка" — формулы уже есть, только текст
+    last_row_ship = len(products) + 2
+    ws_ship[f"A{last_row_ship}"] = "Итого"
+
+    # === 2. Лист "Калькулятор" — заполняем ТОЛЬКО входные ячейки ===
+    start_row = 3
+    max_rows = 40  # строки 3–42
+
+    # Очищаем только входные столбцы (B–G), остальное — формулы!
+    for i in range(max_rows):
+        r = start_row + i
+        for col in "BCDEFG":
+            ws_calc[f"{col}{r}"].value = None
+
+    # Заполняем реальные товары
+    for i, p in enumerate(products):
+        r = start_row + i
+        ws_calc[f"B{r}"] = p["name"]
+        ws_calc[f"C{r}"] = p["quantity"]
+        ws_calc[f"D{r}"] = p["price_with_vat"]
+        ws_calc[f"E{r}"] = p["supplier"]
+        ws_calc[f"F{r}"] = p["vat_in"]
+        ws_calc[f"G{r}"] = p["link"]
+
+    # Строка "Доставка" (43) — заполняем только входные поля
+    ws_calc[f"B43"] = "Доставка"
+    ws_calc[f"C43"] = 1
+    ws_calc[f"D43"] = 27900  # можно параметризовать
+    ws_calc[f"E43"] = "СДЭК"
+    ws_calc[f"F43"] = "УСН"
+    ws_calc[f"G43"] = ""
+
+    # Строка "Итого" (44) — только текст, формулы уже есть
+    ws_calc[f"B44"] = "Итого"
+
+    # === Скрываем пустые строки с товарами ===
+    num_products = len(products)
+    for i in range(num_products, max_rows):
+        r = start_row + i
+        ws_calc.row_dimensions[r].hidden = True
+
+    # Строки "Доставка" (43) и "Итого" (44) — всегда видимы
+    ws_calc.row_dimensions[43].hidden = False
+    ws_calc.row_dimensions[44].hidden = False
+
+    wb.save(output_path)
+    return output_path
+
+# === Основная логика ===
+def main():
+    print("1️⃣ Получаем строки товаров из сделки...")
+    rows = get_deal_product(DEAL_ID)
+    if not rows:
+        print("❌ В сделке нет товаров.")
+        return
+
+    print("2️⃣ Загружаем данные из каталога...")
+    products_for_excel = []
+
+    for row in rows:
+        product_id = row.get("PRODUCT_ID")
+        name = row.get("PRODUCT_NAME", "").strip()
+        quantity = row.get("QUANTITY", 1)
+        price_with_vat = row.get("PRICE", 0)
+
+        # Если название пустое — пропускаем или подставляем заглушку
+        if not name:
+            name = f"Товар ID={product_id}" if product_id else "Неизвестный товар"
+
+        catalog_data = None
+        if product_id:
+            catalog_data = get_catalog_product(product_id)
+
+        # Извлечение данных из каталога
+        product = catalog_data.get("product", {}) if catalog_data else {}
+
+        # Поставщик
+        supplier_enum = product.get("property196", {}).get("valueEnum", "")
+        supplier_info = SUPPLIER_MAP.get(supplier_enum, {
+            "name": supplier_enum or "Не указан",
+            "vat_in": "НДС 20%",
+            "shipping_city": "Москва"
+        })
+
+        # Габариты и вес
+        weight_g = product.get("weight", 0)
+        length_mm = product.get("length", 0)
+        width_mm = product.get("width", 0)
+        height_mm = product.get("height", 0)
+
+        # Ссылка — пока не приходит, но можно добавить позже
+        link = ""
+
+        products_for_excel.append({
+            "name": name,
+            "quantity": quantity,
+            "price_with_vat": price_with_vat,
+            "supplier": supplier_info["name"],
+            "vat_in": supplier_info["vat_in"],
+            "shipping_city": supplier_info["shipping_city"],
+            "weight_g": weight_g,
+            "length_mm": length_mm,
+            "width_mm": width_mm,
+            "height_mm": height_mm,
+            "link": link,
+        })
+
+    print("3️⃣ Заполняем Excel...")
+    output_file = fill_excel(products_for_excel, OUTPUT_FILE)
+    print(f"✅ Готово! Файл сохранён: {output_file}")
+
+# === Запуск ===
+if __name__ == "__main__":
+    #main()
+
+    # Получаем строки товаров из сделки
+    deal_products = get_deal_product(DEAL_ID)
+    print(f"Получено {len(deal_products)} строк товаров из сделки {DEAL_ID}")
+
+    # Экспортируем в Excel с динамическими полями
+    OUTPUT_FILE="db.xlsx"
+    export_products_to_db(deal_products, OUTPUT_FILE)
+
+

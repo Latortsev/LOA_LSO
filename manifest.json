@@ -1,0 +1,21 @@
+{
+  "code": "update_prices_button",
+  "name": {
+    "ru": "Обновить цены из Яндекс‑Функции",
+    "en": "Update Prices from Yandex Function"
+  },
+  "description": {
+    "ru": "Кнопка в карточке сделки для вызова Яндекс‑Функции",
+    "en": "Deal toolbar button to call Yandex Function"
+  },
+  "version": "1.0.0",
+  "vendor": "Oleg",
+  "placement": {
+    "CRM_DEAL_DETAIL_TOOLBAR": {
+      "title": "Обновить цены",
+      "handler": "https://yourusername.github.io/update-prices-app/index.html"
+    }
+  },
+  "auth": "N",
+  "scope": ["crm"]
+}
