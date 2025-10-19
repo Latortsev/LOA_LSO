@@ -126,11 +126,8 @@ class Updater:
         print("=== КОНЕЦ ПРОВЕРКИ ОБНОВЛЕНИЙ ===")
 
 if __name__ == "__main__":
-    # Example usage
-
     import os
-
-    UPDATE_BASE_URL = "https://bitrix24public.com/labkabinet.bitrix24.ru/docs/pub/a74e057419b211005403b334135e4de9/default/"
+    UPDATE_BASE_URL = "https://raw.githubusercontent.com/Latortsev/LOA_LSO/main/"
     FILES_TO_UPDATE = [
         "main.py",
         "gui.pyw",
@@ -140,7 +137,6 @@ if __name__ == "__main__":
         "requirements.txt"
     ]
     LOCAL_APP_DIR = os.path.dirname(os.path.abspath(__file__))
-
     updater = Updater(UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR)
     updater.auto_update_check()
 
