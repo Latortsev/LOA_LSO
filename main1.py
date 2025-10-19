@@ -7,7 +7,7 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill
 import json  # Импортируем json для сериализации сложных объектов
-
+new_row["ставка НДС/входящий"]=20
 # === Настройки ===
 WEBHOOK_URL = "https://labkabinet.bitrix24.ru/rest/6808/9wti8nc7t0j9r2c7/"
 DEAL_ID = 25034

@@ -109,7 +109,6 @@ if __name__ == "__main__":
     #print  (products)
     #print_deal_fields(25034)
     df = get_deal_fields_dataframe(25034, webhook=webhook)
-    df.to_excel("test.xlsx")
     print(df)
 
 
