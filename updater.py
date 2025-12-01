@@ -12,6 +12,9 @@ import base64
 import os
 from pathlib import Path
 
+from key import GITHUB_TOKEN
+
+
 class Updater:
     def __init__(self, base_url: str, files_to_update: list[str], local_dir: str):
         self.base_url = base_url
@@ -137,6 +140,7 @@ class Updater:
 
         print("🔍 Проверка доступа к репозиторию...")
         resp = requests.get(repo_url, headers=headers)
+        print(GITHUB_TOKEN)
         if resp.status_code == 404:
             print(f"❌ Репозиторий не найден: {owner}/{repo}")
             print("   Убедитесь, что:")
