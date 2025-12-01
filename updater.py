@@ -1,16 +1,16 @@
 # updater.py
 
-import sys
-import time
-import shutil
-import subprocess
-
-from email.utils import parsedate_to_datetime
-from urllib.parse import urljoin, quote
-import requests
 import base64
 import os
+import shutil
+import subprocess
+import sys
+import time
+from email.utils import parsedate_to_datetime
 from pathlib import Path
+from urllib.parse import urljoin, quote
+
+import requests
 
 from key import GITHUB_TOKEN
 
@@ -40,7 +40,7 @@ class Updater:
 
         # ограничиваем количество архивов
         if len(existing_archives) + 1 > keep_last:
-            to_delete = sorted(existing_archives, key=lambda d: int(d.name))[:-keep_last+1]
+            to_delete = sorted(existing_archives, key=lambda d: int(d.name))[:-keep_last + 1]
             for d in to_delete:
                 shutil.rmtree(d, ignore_errors=True)
 
@@ -217,14 +217,14 @@ class Updater:
             else:
                 print(f"❌ {file}: ошибка загрузки ({upload_resp.status_code}) — {upload_resp.json()}")
 
+
 def update():
-    import os
     from config import UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR
     updater = Updater(UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR)
     updater.auto_update_check()
 
+
 def upload():
-    import os
     from config import UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR
     from key import GITHUB_TOKEN
     updater = Updater(UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR)
@@ -238,6 +238,3 @@ def upload():
 
 if __name__ == "__main__":
     upload()
-
-
-
