@@ -1,39 +1,39 @@
-import pandas as pd
-import requests
-from openpyxl import load_workbook
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import Font, PatternFill
+import builtins
 import json  # Импортируем json для сериализации сложных объектов
+import logging
 import os
 import shutil
-
 from pathlib import Path
 
-import logging
-import builtins
+import pandas as pd
+import requests
+from openpyxl import Workbook
+from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
-from config import OUTPUT_DIR, TEMPLATE_FILE, DEAL_ID, COLUMN_LABELS
-from key import WEBHOOK_URL
+from config import DEAL_ID, OUTPUT_DIR, TEMPLATE_FILE, COLUMN_LABELS
+from old.key import WEBHOOK_URL
 
 # Включить логирование: DEBUG, INFO, WARNING...
 # Отключить: logging.CRITICAL + 1
-#LOG_LEVEL = logging.CRITICAL + 1  # отключить
-LOG_LEVEL =  logging.INFO
+# LOG_LEVEL = logging.CRITICAL + 1  # отключить
+LOG_LEVEL = logging.INFO
 logging.basicConfig(level=LOG_LEVEL, format='%(message)s')
+
 
 def fast_print(*args, **kwargs):
     if logging.root.level <= logging.INFO:
         message = ' '.join(str(x) for x in args)
         logging.info(message)
 
+
 builtins.print = fast_print
+
 
 def update():
     from updater import update
     update()
-
-
 
 
 def get_deal(deal_id):
@@ -83,8 +83,6 @@ def archive_existing_files(target_folder):
 
     print(f"📦 Архивная папка создана: {archive_folder.name}/")
     print(f"📊 Перемещено файлов: {len(files)}")
-
-
 
 
 # === 1. Получение строк товаров из сделки ===
@@ -259,18 +257,18 @@ def fill_excel(products, deal_id):
     start_row = 3
     max_rows = 198
 
-    #for i, p in enumerate(products):
-        #r = i + 3
-        # ws_ship[f"B{r}"] = p["name"]
-        # ws_ship[f"C{r}"] = p["quantity"]
-        # ws_ship[f"D{r}"] = p["supplier"]
-        #ws_ship[f"E{r}"] = p["shipping_city"]
-        #ws_ship[f"F{r}"] = float(p["weight_g"])
-        #ws_ship[f"G{r}"] = p["length_mm"]
-        #ws_ship[f"H{r}"] = p["width_mm"]
-        #ws_ship[f"I{r}"] = p["height_mm"]
-        #if p["volume_m3"]:
-            #ws_ship[f"J{r}"] = float(p["volume_m3"])
+    # for i, p in enumerate(products):
+    # r = i + 3
+    # ws_ship[f"B{r}"] = p["name"]
+    # ws_ship[f"C{r}"] = p["quantity"]
+    # ws_ship[f"D{r}"] = p["supplier"]
+    # ws_ship[f"E{r}"] = p["shipping_city"]
+    # ws_ship[f"F{r}"] = float(p["weight_g"])
+    # ws_ship[f"G{r}"] = p["length_mm"]
+    # ws_ship[f"H{r}"] = p["width_mm"]
+    # ws_ship[f"I{r}"] = p["height_mm"]
+    # if p["volume_m3"]:
+    # ws_ship[f"J{r}"] = float(p["volume_m3"])
 
     # ws_ship[f"F1"] = p["height_mm"]
 
@@ -409,11 +407,13 @@ def import_data(deal_id):
     output_file = fill_excel(products_for_excel, deal_id)
     print(f"✅ Готово! Файл сохранён: {output_file}")
 
+
 def get_catalog_products(ids):
     result = {}
     for pid in ids:
         result[pid] = get_catalog_product(pid)  # старая функция
     return result
+
 
 def create_products_from_tovary(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR):
     """
@@ -833,7 +833,7 @@ def export_data(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR, update_
 
         print(f"🎯 Каталог обновлён: {updated_count} товаров.")
 
-        
+
 def export_data_КЕДО(deal_id):
     print("\n📤 ЭКСПОРТ КЕДО (цены из колонки x = 24)")
     _export_data_with_price_column(
@@ -915,7 +915,7 @@ def _export_data_with_price_column(deal_id, price_col_index, tax_rate, tax_inclu
             row_data["PRODUCT_ID"] = product_id
             new_rows.append(row_data)
 
-        #print(f"   ✅ {name} → {price} руб, НДС: {tax_rate}, Включён: {tax_included}")
+        # print(f"   ✅ {name} → {price} руб, НДС: {tax_rate}, Включён: {tax_included}")
 
     # Отправка в Bitrix24
     try:
@@ -924,7 +924,7 @@ def _export_data_with_price_column(deal_id, price_col_index, tax_rate, tax_inclu
             json={"id": deal_id, "rows": new_rows}
         )
         response.raise_for_status()
-        #print(f"✅ Успешно обновлено ({mode})!")
+        # print(f"✅ Успешно обновлено ({mode})!")
     except Exception as e:
         print(f"❌ Ошибка при экспорте {mode}: {e}")
         if 'response' in locals():
@@ -952,9 +952,11 @@ def generate_3kp(deal_id):
 
     print("\n✅ Генерация 3 КП завершена.")
 
+
 def generate_kp_lsho(deal_id):
     export_data_LSO(deal_id)
     generate_KP(deal_id, 46)
+
 
 def generate_kp_verch(deal_id):
     export_data_Verch(deal_id)
@@ -1062,8 +1064,6 @@ def generate_KP(deal_id, template_id=46, webhook_url=WEBHOOK_URL, entity_type_id
         response.raise_for_status()
         result = response.json()
 
-
-
         if 'result' in result and 'document' in result['result']:
             download_url = result['result']['document'].get('downloadUrlMachine')
             if download_url:
@@ -1145,7 +1145,7 @@ def fill_deal_sheet(worksheet, deal_data, deal_id, start_row=2):
         'UF_CRM_1757931573446': 'Адрес отгрузки',
         'UF_CRM_1757999862739': 'Дата планируемой поставки',
         'UF_CRM_1759603831093': 'Компания отгрузки',
-        'UF_CRM_1761537686'   : 'Наценка  итоговая'
+        'UF_CRM_1761537686': 'Наценка  итоговая'
 
     }
 
@@ -1235,6 +1235,7 @@ def products_to_excel(deal_id, output_file=None, catalog_id=None):
 
     return df
 
+
 def create_products_from_tovary(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR):
     input_file = os.path.join(output_dir, str(deal_id), f"расчет_{deal_id}.xlsx")
     if not os.path.exists(input_file):
@@ -1277,9 +1278,9 @@ def create_products_from_tovary(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUT
 
         product_id_val = ws.cell(row=row_idx, column=id_col_idx).value
         is_manual = (
-            product_id_val is None
-            or str(product_id_val).strip() == ""
-            or (isinstance(product_id_val, (int, float)) and float(product_id_val) == 0)
+                product_id_val is None
+                or str(product_id_val).strip() == ""
+                or (isinstance(product_id_val, (int, float)) and float(product_id_val) == 0)
         )
 
         if is_manual:
@@ -1333,17 +1334,17 @@ def create_products_from_tovary(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUT
         print(f"💾 Excel обновлён: добавлено {created_count} новых PRODUCT_ID.")
     else:
         print("ℹ️ Новых товаров для создания не найдено.")
-        
+
 
 if __name__ == "__main__":
-    deal_id=13968
-    #import_data(deal_id)
-    #create_products_from_tovary(DEAL_ID)
+    deal_id = 13968
+    # import_data(deal_id)
+    # create_products_from_tovary(DEAL_ID)
     generate_kp_lsho(deal_id)
     # fill_excel(DEAL_ID)
     # deal_to_exel(DEAL_ID,deal)
     # auto_update_check()
     # import_data(DEAL_ID)
-    #export_data(deal_id)
+    # export_data(deal_id)
     # generate_3kp(DEAL_ID)
     # main()
