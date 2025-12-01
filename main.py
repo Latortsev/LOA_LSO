@@ -14,115 +14,29 @@ import time
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urljoin
+import logging
+import builtins
 
-# === Настройки обновления ===
-UPDATE_BASE_URL = "https://bitrix24public.com/labkabinet.bitrix24.ru/docs/pub/a74e057419b211005403b334135e4de9/default/?&"
-LOCAL_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+def update():
+    from updater import main as updater_main
+    updater_main()
 
-# Файлы, которые нужно обновлять
-FILES_TO_UPDATE = [
-    "main.py",
-    "gui.pyw",
-    "install.bat",
-    "Шаблоны/Расчет_шаблон_V1.xlsx",
-    "README.docx",
-    "requirements.txt"
-]
+# Включить логирование: DEBUG, INFO, WARNING...
+# Отключить: logging.CRITICAL + 1
+#LOG_LEVEL = logging.CRITICAL + 1  # отключить
+LOG_LEVEL =  logging.INFO
+logging.basicConfig(level=LOG_LEVEL, format='%(message)s')
 
-# === Настройки ===
-WEBHOOK_URL = "https://labkabinet.bitrix24.ru/rest/6808/9wti8nc7t0j9r2c7/"
-DEAL_ID = 25034
-INPUT_DIR = os.path.join(LOCAL_APP_DIR, f"Шаблоны")
-OUTPUT_DIR = os.path.join(LOCAL_APP_DIR, f"Расчеты")
+def fast_print(*args, **kwargs):
+    if logging.root.level <= logging.INFO:
+        message = ' '.join(str(x) for x in args)
+        logging.info(message)
 
-TEMPLATE_FILE = os.path.join(INPUT_DIR, f"Расчет_шаблон_V1.xlsx")
-
-COLUMN_LABELS = {
-    # === Поля строки сделки (DEAL_ROW_*) ===
-    "PRODUCT_ID": "ID товара в каталоге",
-    "PRODUCT_NAME": "Название товара (в сделке)",
-    "PROPERTY_216": "Цена закупа",
-    "QUANTITY": "Количество",
-    "PROPERTY_228": "Поставщик",
-    "PROPERTY_236": "Ставка НДС/входящий",
-    "PROPERTY_234": "Артикул поставщика",
-    "PROPERTY_206": "Ссылка на товар",
-    "PROPERTY_200": "Наценка",
-    "PRICE": "Цена в сделке",
-    "TAX_RATE": "Ставка налога (%)",
-    "TAX_INCLUDED": "Налог включён в цену",
-    "MEASURE_NAME": "Единица измерения",
-    "PROPERTY_214": "Объём (м³)",
-    "PROPERTY_232": "Вес (г)",
-    "PROPERTY_238": "Срок отгрузки",
-    "PROPERTY_242": "Бронируется? да/нет/прямая",
-    "PROPERTY_244": "Реестр Минпрома (Да/Нет)",
-    "PROPERTY_204": "Страна производства",
-    "PROPERTY_212": "Реестровая запись в Минпроме",
-    "PRODUCT_DESCRIPTION": "Описание товара",
-    "PROPERTY_194": "Техническое описание",
-    "SORT": "Сортировка",
-    "XML_ID": "Внешний ID (XML_ID)",
-    "TYPE": "Тип строки",
-    "STORE_ID": "ID склада",
-    "RESERVE_ID": "ID резерва",
-    "DATE_RESERVE_END": "Дата окончания резерва",
-    "RESERVE_QUANTITY": "Зарезервированное количество",
-    "ID": "ID строки товара",
-    "OWNER_ID": "ID сделки",
-    "OWNER_TYPE": "Тип владельца",
-    "ORIGINAL_PRODUCT_NAME": "Оригинальное название",
-    "PRICE_EXCLUSIVE": "Цена без скидок",
-    "PRICE_NETTO": "Цена нетто",
-    "PRICE_BRUTTO": "Цена брутто",
-    "PRICE_ACCOUNT": "Бухгалтерская цена",
-    "DISCOUNT_TYPE_ID": "Тип скидки",
-    "DISCOUNT_RATE": "Размер скидки (%)",
-    "DISCOUNT_SUM": "Сумма скидки",
-    "CUSTOMIZED": "Изменено вручную",
-    "MEASURE_CODE": "Код единицы измерения",
-
-    # === Поля из каталога (товара) ===
-    "NAME": "Название товара (каталог)",
-    "CODE": "Символьный код",
-    "ACTIVE": "Активен",
-    "CATALOG_ID": "ID каталога",
-    "SECTION_ID": "ID раздела",
-    "DESCRIPTION": "Описание (каталог)",
-    "VAT_ID": "Ставка НДС",
-    "VAT_INCLUDED": "НДС включён",
-    "DESCRIPTION_TYPE": "Тип описания",
-    "CURRENCY_ID": "Валюта",
-    "MEASURE": "Единица измерения (каталог)",
-    "PREVIEW_PICTURE": "Превью изображение",
-    "DETAIL_PICTURE": "Детальное изображение",
-    "TIMESTAMP_X": "Дата изменения",
-    "DATE_CREATE": "Дата создания",
-    "MODIFIED_BY": "Изменил",
-    "CREATED_BY": "Создал",
-
-    # === Пользовательские свойства (PROPERTY_XXX) ===
-    # ⚠️ Эти названия — предположения! Замени на реальные, если знаешь точные.
-    "PROPERTY_108": "Картинка товара",
-    "PROPERTY_218": "ООО с НДС",
-    "PROPERTY_220": "ИП без НДС",
-    "PROPERTY_240": "Актуальная цена",
-    "PROPERTY_202": "Дата расчета",
+builtins.print = fast_print
 
 
-    # === Служебные поля из твоего кода ===
-    #"ID строки в сделке": "ID строки в сделке",
-    #"Из каталога?": "Из каталога?",
-}
 
-SUPPLIER_MAP = {
-    "ООО": {
-        "name": 'ООО "Научные развлечения"',
-        "vat_in": "НДС 20%",
-        "shipping_city": "Москва"
-    },
-    # Можно добавить другие поставщики
-}
+
 
 
 def get_deal(deal_id):
@@ -174,124 +88,6 @@ def archive_existing_files(target_folder):
     print(f"📊 Перемещено файлов: {len(files)}")
 
 
-def check_for_updates():
-    """
-    Проверяет, есть ли обновления на сервере.
-    """
-    print(f"Проверка обновлений по адресу: {UPDATE_BASE_URL}")
-
-    # Проверяем, можно ли получить список файлов
-    try:
-        # Попробуем получить главную страницу
-        response = requests.get(UPDATE_BASE_URL)
-        print(f"HTTP статус: {response.status_code}")
-        if response.status_code != 200:
-            print(f"Ошибка доступа: {response.status_code}")
-            return False
-
-        # Проверим, есть ли файлы на сервере
-        print("Проверяем наличие файлов на сервере...")
-        for file in FILES_TO_UPDATE:
-            remote_url = urljoin(UPDATE_BASE_URL, file)
-            try:
-                head_response = requests.head(remote_url)
-                print(f"Файл {file}: статус {head_response.status_code}, заголовки: {head_response.headers}")
-                if head_response.status_code == 200:
-                    # Сравниваем время модификации
-                    local_path = os.path.join(LOCAL_APP_DIR, file)
-                    if os.path.exists(local_path):
-                        local_time = os.path.getmtime(local_path)
-                        remote_time_str = head_response.headers.get('Last-Modified')
-                        if remote_time_str:
-                            # Просто логируем, какое время на сервере
-                            print(f"  Локальный файл {file} изменён: {time.ctime(local_time)}")
-                            print(f"  Удалённый файл {file} изменён: {remote_time_str}")
-                        else:
-                            print(f"  У файла {file} нет времени модификации")
-                    else:
-                        print(f"  Файл {file} отсутствует локально")
-                        return True  # новый файл
-                else:
-                    print(f"  Файл {file} не найден на сервере (статус {head_response.status_code})")
-            except Exception as e:
-                print(f"  Ошибка при проверке {file}: {e}")
-                return False
-        print("Проверка завершена.")
-        return False  # если ничего не обновилось
-
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка подключения к серверу: {e}")
-        return False
-
-
-def update_app():
-    """
-    Скачивает и обновляет файлы с сервера.
-    """
-    print("Начинаем обновление файлов...")
-    for file in FILES_TO_UPDATE:
-        remote_url = urljoin(UPDATE_BASE_URL, file)
-        local_path = os.path.join(LOCAL_APP_DIR, file)
-
-        try:
-            print(f"Скачиваем {file} с {remote_url}...")
-            response = requests.get(remote_url)
-            print(f"  Статус ответа: {response.status_code}")
-            if response.status_code == 200:
-                print(f"  Размер файла: {len(response.content)} байт")
-                with open(local_path, 'wb') as f:
-                    f.write(response.content)
-                print(f"  Файл {file} успешно обновлён.")
-            else:
-                print(f"  Не удалось скачать {file}, статус: {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"  Ошибка скачивания {file}: {e}")
-            return False
-    print("Все файлы обновлены успешно.")
-    return True
-
-
-def restart_app():
-    """
-    Перезапускает приложение.
-    """
-    print("Перезапуск приложения...")
-    subprocess.Popen([sys.executable] + sys.argv)
-    sys.exit()
-
-
-def auto_update_check():
-    """
-    Проверяет обновления и обновляет приложение.
-    """
-    print("=== НАЧАЛО ПРОВЕРКИ ОБНОВЛЕНИЙ ===")
-    print(f"Локальная папка: {LOCAL_APP_DIR}")
-    print(f"URL обновлений: {UPDATE_BASE_URL}")
-    print(f"Файлы для проверки: {FILES_TO_UPDATE}")
-
-    # Проверим, что локальные файлы существуют
-    for file in FILES_TO_UPDATE:
-        local_path = os.path.join(LOCAL_APP_DIR, file)
-        if os.path.exists(local_path):
-            print(f"  Локальный файл {file} существует, размер: {os.path.getsize(local_path)} байт")
-        else:
-            print(f"  Локальный файл {file} отсутствует")
-
-    # Проверяем обновления
-    has_updates = check_for_updates()
-
-    if has_updates:
-        print("Обнаружено обновление, начинаем обновление...")
-        if update_app():
-            print("Обновление завершено, перезапускаем приложение...")
-            restart_app()
-        else:
-            print("Ошибка обновления.")
-    else:
-        print("Обновлений не обнаружено.")
-
-    print("=== КОНЕЦ ПРОВЕРКИ ОБНОВЛЕНИЙ ===")
 
 
 # === 1. Получение строк товаров из сделки ===
@@ -460,24 +256,24 @@ def fill_excel(products, deal_id):
             ws_prod.cell(row=row_idx, column=col_idx, value=value)
     # === 1. Лист "Доставка" — заполняем только входные данные ===
     # Очищаем только входные столбцы (A–H), формулы в I–K останутся
-    ##    for row in range(3, 43):
+    ##    for row in range(3, 98):
     ##        for col in "ABCDEFGH":
     ##            ws_ship[f"{col}{row}"].value = None
     start_row = 3
-    max_rows = 96
+    max_rows = 198
 
-    for i, p in enumerate(products):
-        r = i + 3
+    #for i, p in enumerate(products):
+        #r = i + 3
         # ws_ship[f"B{r}"] = p["name"]
         # ws_ship[f"C{r}"] = p["quantity"]
         # ws_ship[f"D{r}"] = p["supplier"]
-        ws_ship[f"E{r}"] = p["shipping_city"]
-        ws_ship[f"F{r}"] = float(p["weight_g"])
-        ws_ship[f"G{r}"] = p["length_mm"]
-        ws_ship[f"H{r}"] = p["width_mm"]
-        ws_ship[f"I{r}"] = p["height_mm"]
-        if p["volume_m3"]:
-            ws_ship[f"J{r}"] = float(p["volume_m3"])
+        #ws_ship[f"E{r}"] = p["shipping_city"]
+        #ws_ship[f"F{r}"] = float(p["weight_g"])
+        #ws_ship[f"G{r}"] = p["length_mm"]
+        #ws_ship[f"H{r}"] = p["width_mm"]
+        #ws_ship[f"I{r}"] = p["height_mm"]
+        #if p["volume_m3"]:
+            #ws_ship[f"J{r}"] = float(p["volume_m3"])
 
     # ws_ship[f"F1"] = p["height_mm"]
 
@@ -487,13 +283,13 @@ def fill_excel(products, deal_id):
         r = start_row + i
         ws_ship.row_dimensions[r].hidden = True
 
-    # Строки "Доставка" (43) и "Итого" (44) — всегда видимы
-    ws_ship.row_dimensions[99].hidden = False
-    ws_ship.row_dimensions[100].hidden = False
+    # Строки "Доставка" (199) и "Итого" (200) — всегда видимы
+    ws_ship.row_dimensions[199].hidden = False
+    ws_ship.row_dimensions[200].hidden = False
 
     # === 2. Лист "Калькулятор" — заполняем ТОЛЬКО входные ячейки ===
     start_row = 3
-    max_rows = 96  # строки 3–42
+    max_rows = 198  # строки 3–42
 
     # Очищаем только входные столбцы (B–G), остальное — формулы!
     # for i in range(max_rows):
@@ -514,16 +310,16 @@ def fill_excel(products, deal_id):
     #     ws_calc[f"Z{r}"] = p["bron"]
     #     ws_calc[f"Y{r}"] = p["actual"]
 
-    # Строка "Доставка" (43) — заполняем только входные поля
-    # ws_calc[f"С43"] = "Доставка"
-    # ws_calc[f"D43"] = 1
-    # ws_calc[f"D43"] = 27900  # можно параметризовать
-    # ws_calc[f"E43"] = "СДЭК"
-    # ws_calc[f"F43"] = "УСН"
-    # ws_calc[f"G43"] = ""
+    # Строка "Доставка" (99) — заполняем только входные поля
+    # ws_calc[f"С99"] = "Доставка"
+    # ws_calc[f"D99"] = 1
+    # ws_calc[f"D99"] = 27900  # можно параметризовать
+    # ws_calc[f"E99"] = "СДЭК"
+    # ws_calc[f"F99"] = "УСН"
+    # ws_calc[f"G99"] = ""
 
-    # Строка "Итого" (44) — только текст, формулы уже есть
-    # ws_calc[f"B44"] = "Итого"
+    # Строка "Итого" (100) — только текст, формулы уже есть
+    # ws_calc[f"B100"] = "Итого"
 
     # === Скрываем пустые строки с товарами ===
     num_products = len(products)
@@ -531,9 +327,9 @@ def fill_excel(products, deal_id):
         r = start_row + i
         ws_calc.row_dimensions[r].hidden = True
 
-    # Строки "Доставка" (43) и "Итого" (44) — всегда видимы
-    ws_calc.row_dimensions[99].hidden = False
-    ws_calc.row_dimensions[100].hidden = False
+    # Строки "Доставка" (99) и "Итого" (100) — всегда видимы
+    ws_calc.row_dimensions[199].hidden = False
+    ws_calc.row_dimensions[200].hidden = False
 
     wb.save(OUTPUT_FILE)
     return OUTPUT_FILE
@@ -544,58 +340,54 @@ def import_data(deal_id):
     rows = get_deal_products(deal_id)
     if not rows:
         print("❌ В сделке нет товаров.")
-        # Создаём пустой файл из шаблона
         OUTPUT_FILE = os.path.join(OUTPUT_DIR, str(deal_id), f"расчет_{deal_id}.xlsx")
         os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
         shutil.copy(TEMPLATE_FILE, OUTPUT_FILE)
         print(f"📁 Создан пустой файл из шаблона: {OUTPUT_FILE}")
-        return # Выходим из функции, так как товары отсутствуют
+        return
 
-    print("2️⃣ Загружаем данные из каталога...")
+    print("2️⃣ Собираем уникальные product_id для пакетной загрузки...")
+    product_ids = {row.get("PRODUCT_ID") for row in rows if row.get("PRODUCT_ID")}
+
+    # Пакетная загрузка каталога — предполагаем, что get_catalog_products принимает список ID
+    catalog_cache = {}
+    if product_ids:
+        try:
+            # ⚠️ НУЖНО реализовать или адаптировать get_catalog_products!
+            catalog_cache = get_catalog_products(list(product_ids))  # возвращает {id: data}
+        except Exception as e:
+            print(f"⚠️ Ошибка при загрузке каталога: {e}")
+            catalog_cache = {}
+
+    print("3️⃣ Обрабатываем строки товаров...")
     products_for_excel = []
 
     for row in rows:
-        print(row)
         product_id = row.get("PRODUCT_ID")
         name = row.get("PRODUCT_NAME", "").strip()
         quantity = row.get("QUANTITY", 1)
         price_with_vat = row.get("PRICE", 0)
 
-        # Если название пустое — пропускаем или подставляем заглушку
         if not name:
             name = f"Товар ID={product_id}" if product_id else "Неизвестный товар"
 
-        catalog_data = None
-        if product_id:
-            catalog_data = get_catalog_product(product_id)
+        # Получаем данные из кэша
+        product = {}
+        if product_id and product_id in catalog_cache:
+            product = catalog_cache[product_id].get("product", {})
 
-        # Извлечение данных из каталога
-        product = catalog_data.get("product", {}) if catalog_data else {}
-        print(json.dumps(product, indent=2, ensure_ascii=False))
-        # # Поставщик
-        # supplier_enum = product.get("property196", {}).get("valueEnum", "")
-        # supplier_info = SUPPLIER_MAP.get(supplier_enum, {
-        #     "name": supplier_enum or "Не указан",
-        #     "vat_in": "НДС 20%",
-        #     "shipping_city": "Москва"
-        # })
-
-        # Габариты и вес
-        weight_g = product.get("weight", 0)
-        if weight_g == 0 or weight_g == None:
-            weight_g = (product.get("property232") or {}).get("value", 0)
-            print(weight_g)
+        # Извлечение данных с безопасными дефолтами
+        weight_g = product.get("weight") or (product.get("property232") or {}).get("value", 0)
         length_mm = product.get("length", 0)
         width_mm = product.get("width", 0)
         height_mm = product.get("height", 0)
-        supplier = (product.get("property228") or {}).get("value", 0)
-        vat_in = (product.get("property236") or {}).get("value", 0)
+        supplier = (product.get("property228") or {}).get("value", "Не указан")
+        vat_in = (product.get("property236") or {}).get("value", "НДС не указан")
         link = (product.get("property206") or {}).get("value", "")
         price_purchase = (product.get("property216") or {}).get("value", 0)
         volume_m3 = (product.get("property214") or {}).get("value", 0)
         bron = (product.get("property242") or {}).get("value", 0)
         actual = (product.get("property240") or {}).get("value", "")
-        # adress= product.get("property242", {}).get("value", 0)
 
         products_for_excel.append({
             "product_id": product_id,
@@ -615,11 +407,16 @@ def import_data(deal_id):
             "bron": bron,
             "actual": actual
         })
-    print(products_for_excel.append)
 
-    print("3️⃣ Заполняем Excel...")
+    print("4️⃣ Заполняем Excel...")
     output_file = fill_excel(products_for_excel, deal_id)
     print(f"✅ Готово! Файл сохранён: {output_file}")
+
+def get_catalog_products(ids):
+    result = {}
+    for pid in ids:
+        result[pid] = get_catalog_product(pid)  # старая функция
+    return result
 
 def create_products_from_tovary(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR):
     """
@@ -748,7 +545,7 @@ def _read_products_from_calculator(wb):
     """
     ws_calc = wb["Калькулятор"]
     rows = []
-    for row in range(3, 43):
+    for row in range(3, 198):
         product_id_raw = ws_calc.cell(row=row, column=2).value  # B
         name = str(ws_calc.cell(row=row, column=3).value or "").strip()  # C
         qty_raw = ws_calc.cell(row=row, column=4).value  # D
@@ -869,87 +666,63 @@ def _bitrix_update_product(product_id, fields, webhook_url=WEBHOOK_URL):
 
 
 def export_data(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR, update_catalog=True):
-    """Экспортирует данные из Excel обратно в Bitrix24:
-    1) Обновляет строки сделки (crm.deal.productrows.set).
-    2) Обновляет товары каталога (crm.product.update) по данным листа "Товары".
-    Теперь добавлено логирование полного ответа Bitrix24 в JSON."""
-
-    #создаем новые позиции
-    create_products_from_tovary(deal_id)
-
     input_file = os.path.join(output_dir, str(deal_id), f"расчет_{deal_id}.xlsx")
     if not os.path.exists(input_file):
         print(f"❌ Файл не найден: {input_file}")
         return
 
+    # === ШАГ 1: Создаём новые товары И СРАЗУ ОБНОВЛЯЕМ EXCEL ===
+    print("🆕 Создаём новые товары из листа 'Товары'...")
+    create_products_from_tovary(deal_id)  # ← эта функция ДОЛЖНА обновить Excel
+
+    # === ШАГ 2: Перезагружаем файл, чтобы учесть новые PRODUCT_ID ===
     wb = load_workbook(input_file, data_only=True)
 
-    # 1. Подготовка строк для обновления сделки
-    ws_calc = wb["Калькулятор"]
+    # === ШАГ 3: Формируем строки сделки с учётом новых ID ===
     deal_rows_payload = []
+    ws_calc = wb["Калькулятор"]
     row_idx = 3
     while True:
-        product_id_raw = ws_calc.cell(row=row_idx, column=2).value # B - ID товара в каталоге
-        name = str(ws_calc.cell(row=row_idx, column=3).value or "").strip() # C - Название
-        qty_raw = ws_calc.cell(row=row_idx, column=4).value # D - Кол-во
-        price_unit_raw = ws_calc.cell(row=row_idx, column=21).value # U - Цена ЛШО (например)
+        product_id_raw = ws_calc.cell(row=row_idx, column=2).value  # B
+        name = str(ws_calc.cell(row=row_idx, column=3).value or "").strip()  # C
+        qty_raw = ws_calc.cell(row=row_idx, column=4).value  # D
+        price_unit_raw = ws_calc.cell(row=row_idx, column=21).value  # U
 
         if not name or name.lower() in ("доставка", "итого"):
             if product_id_raw in (None, "") and not name and qty_raw in (None, ""):
                 break
             row_idx += 1
-            continue # Пропускаем "Доставка" и "Итого" как товары, но не завершаем, если есть данные
+            continue
 
+        # Приведение ID: если 0 → считаем ручным товаром
         try:
             product_id = int(float(product_id_raw)) if product_id_raw not in (None, "") else 0
         except:
             product_id = 0
 
-        try:
-            quantity = int(float(qty_raw)) if qty_raw not in (None, "") else 1
-        except:
-            quantity = 1
-
-        try:
-            price_unit = float(price_unit_raw) if price_unit_raw not in (None, "") else 0.0
-        except:
-            price_unit = 0.0
-
+        # Если ID == 0 → это ручной товар, отправляем по имени
         row_payload = {
-            "QUANTITY": quantity,
-            "PRICE": price_unit,
+            "QUANTITY": int(float(qty_raw)) if qty_raw not in (None, "") else 1,
+            "PRICE": float(price_unit_raw) if price_unit_raw not in (None, "") else 0.0,
             "TAX_RATE": "20.00",
             "TAX_INCLUDED": "Y",
-            "CUSTOMIZED": "Y", # Помечаем как изменённые вручную
+            "CUSTOMIZED": "Y",
         }
 
-        if product_id != 0: # Если ID товара валидный
+        if product_id != 0:
             row_payload["PRODUCT_ID"] = product_id
         else:
-            # Если ID товара нет, используем NAME
-            if name:
-                row_payload["PRODUCT_NAME"] = name
-            else:
-                row_payload["PRODUCT_NAME"] = "Без названия"
+            row_payload["PRODUCT_NAME"] = name or "Без названия"
 
         deal_rows_payload.append(row_payload)
         row_idx += 1
 
-    # === Отправляем строки сделки ===
+    # === ШАГ 4: Отправляем строки сделки ===
     if deal_rows_payload:
         print(f"📤 Отправляем {len(deal_rows_payload)} строк в сделку {deal_id}...")
         try:
             url = f"{webhook_url}crm.deal.productrows.set"
-            payload = {"id": deal_id, "rows": deal_rows_payload}
-            print(f"Попытка вызвать метод crm.deal.productrows.set с параметрами: {payload}")
-            print(f"URL запроса: {url}")
-
-            resp = requests.post(url, json=payload)
-            print(f"➡️ Ответ Bitrix24 (crm.deal.productrows.set):")
-            try:
-                print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
-            except:
-                print(resp.text)
+            resp = requests.post(url, json={"id": deal_id, "rows": deal_rows_payload})
             resp.raise_for_status()
             print("✅ Строки сделки успешно обновлены.")
         except Exception as e:
@@ -959,33 +732,30 @@ def export_data(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR, update_
     else:
         print("ℹ️ Нет строк для обновления сделки.")
 
-
+    # === ШАГ 5: Обновляем каталог (только для строк с PRODUCT_ID != 0) ===
     if update_catalog:
-        print("🔄 Начинаем обновление товаров каталога из листа 'Товары'...")
+        print("🔄 Обновляем товары каталога из листа 'Товары'...")
         if "Товары" not in wb.sheetnames:
-            print("❌ Лист 'Товары' не найден в файле. Пропуск обновления каталога.")
+            print("❌ Лист 'Товары' не найден.")
             return
 
         ws_prod = wb["Товары"]
+        # Читаем технические заголовки из строки 1
         headers = []
         col = 1
         while True:
             val = ws_prod.cell(row=1, column=col).value
-            if not val:
+            if val is None:
                 break
             headers.append(str(val).strip())
             col += 1
 
         if not headers:
-            print("❌ На листе 'Товары' не найдена шапка (заголовки столбцов). Пропуск обновления каталога.")
+            print("❌ Не найдены заголовки на листе 'Товары'.")
             return
 
-        print(f"Заголовки столбцов: {headers}")
-        # Используем техническое имя 'PRODUCT_NAME' вместо 'Название товара (в сделке)'
-        name_col_header = 'PRODUCT_NAME'
-
-        row_idx = 3 # начинаем с 3-й строки, т.к. 2-я строка — русские подписи
         updated_count = 0
+        row_idx = 3
         while True:
             row_data = {}
             empty = True
@@ -995,122 +765,78 @@ def export_data(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR, update_
                     empty = False
                     row_data[key] = val
 
-            # Проверяем, пустое ли имя товара (PRODUCT_NAME), и если да - прерываем цикл
-            name_val = row_data.get(name_col_header) # Используем техническое имя
-            if name_val is None or str(name_val).strip() == "":
-                 print(f"ℹ️ Строка {row_idx}: Название товара (PRODUCT_NAME) пустое. Прерывание обработки листа 'Товары'.")
-                 break # Прерываем цикл, если имя пустое
-
+            # Прерываем по пустому PRODUCT_NAME
+            if row_data.get("PRODUCT_NAME") in (None, ""):
+                break
             if empty:
-                print(f"ℹ️ Строка {row_idx}: Все ячейки пустые. Прерывание обработки листа 'Товары'.")
-                break # Прерываем цикл, если вся строка пустая
+                break
 
-            product_id_raw = row_data.get("PRODUCT_ID") # Используем техническое имя
-            # Проверка: пустой или 0 любого типа
-            is_manual = False
+            product_id_raw = row_data.get("PRODUCT_ID")
             if product_id_raw is None or str(product_id_raw).strip() == "":
                 is_manual = True
             else:
                 try:
-                    if float(product_id_raw) == 0:
-                        is_manual = True
-                except (ValueError, TypeError):
-                    pass
+                    is_manual = float(product_id_raw) == 0
+                except:
+                    is_manual = True
 
             if is_manual:
-                print(f"ℹ️ Строка {row_idx}: Товар без ID в каталоге (ID={product_id_raw}). Пропуск обновления каталога для этой строки.")
                 row_idx += 1
-                continue # Пропускаем, если это ручная строка без ID
+                continue
 
             product_id = int(float(product_id_raw))
             fields = {}
 
-            # Поле NAME
-            name_val = row_data.get(name_col_header) # Используем техническое имя
-            if name_val is not None and str(name_val).strip() != "":
+            # NAME
+            name_val = row_data.get("PRODUCT_NAME")
+            if name_val:
                 fields["NAME"] = str(name_val).strip()
 
-            # Поле PRICE (Цена в сделке)
-            price_val = row_data.get("PRICE") # Используем техническое имя
+            # PRICE
+            price_val = row_data.get("PRICE")
             if price_val is not None:
                 try:
                     fields["PRICE"] = float(price_val)
-                except (ValueError, TypeError):
-                    pass # Или установить в 0.0, если значение некорректно
+                except:
+                    pass
 
-            # Поле CURRENCY_ID
-            currency_val = row_data.get("CURRENCY_ID")
-            if currency_val is not None and str(currency_val).strip() != "":
-                fields["CURRENCY_ID"] = str(currency_val).strip()
+            # CURRENCY_ID, VAT_INCLUDED
+            if row_data.get("CURRENCY_ID"):
+                fields["CURRENCY_ID"] = str(row_data["CURRENCY_ID"])
+            if row_data.get("VAT_INCLUDED") in ("Y", "N"):
+                fields["VAT_INCLUDED"] = row_data["VAT_INCLUDED"]
 
-            # Поле VAT_INCLUDED
-            vat_incl_val = row_data.get("VAT_INCLUDED")
-            if vat_incl_val in ("Y", "N"):
-                fields["VAT_INCLUDED"] = vat_incl_val
-
-            # Все PROPERTY_XXX из COLUMN_LABELS
-            for key, label in COLUMN_LABELS.items():  # Итерируемся по COLUMN_LABELS
-                if key.startswith("PROPERTY_"):  # Проверяем, является ли ключ PROPERTY_XXX
-                    # Значение из Excel для этого PROPERTY_XXX
-                    value_from_sheet = row_data.get(key)
-
-                    # Если это PROPERTY_202, всегда заменяем на текущую дату
+            # PROPERTY_XXX
+            for key in headers:
+                if key.startswith("PROPERTY_"):
                     if key == "PROPERTY_202":
                         from datetime import datetime
-                        current_date_iso = datetime.now().strftime('%Y-%m-%dT%H:%M:%S%z')
-                        if not current_date_iso.endswith(("+03:00", "+0300")):
-                            current_date_iso = current_date_iso.replace("Z", "") + "+03:00"
+                        current_date_iso = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+03:00')
                         fields[key] = {"value": current_date_iso}
-                        print(f"   - {key} установлено в текущую дату: {current_date_iso}")
-                    # Если это PROPERTY_240, всегда заменяем на "Да"
                     elif key == "PROPERTY_240":
                         fields[key] = {"value": "Да"}
-                        print(f"   - {key} установлено в: Да")
-                    # Для других PROPERTY_XXX: если значение есть в Excel, используем его; если нет, но поле в COLUMN_LABELS, всё равно отправляем (возможно, пустое)
                     else:
-                        # Если значение есть в Excel, используем его
-                        if value_from_sheet is not None and str(value_from_sheet).strip() != "":
-                            fields[key] = {"value": value_from_sheet}
-                            print(f"   - {key} установлено в: {value_from_sheet}")
-                        # Если значения нет в Excel, но поле есть в COLUMN_LABELS и это PROPERTY_XXX, всё равно можем отправить пустое или не отправлять, в зависимости от логики
-                        # В текущей логике, если в Excel пусто, мы не добавляем это поле в fields, и оно не будет обновлено в Битрикс.
-                        # Если вы хотите, чтобы пустые поля в Excel приводили к очистке поля в Битрикс, используйте:
-                        # else:
-                        #     fields[key] = {"value": ""} # или {"value": None}, в зависимости от того, как Битрикс воспринимает очистку
-                        #     print(f"   - {key} установлено в пустое значение.")
-                        # В данном варианте, если значение в Excel отсутствует или пустое, мы его не отправляем в fields.
-                        else:
-                            print(f"   - {key} пропущено (значение отсутствует или пустое в Excel).")
+                        val = row_data.get(key)
+                        if val not in (None, ""):
+                            fields[key] = {"value": val}
 
-
-            # Отправляем обновление
+            # Отправка обновления
             try:
-                url = f"{webhook_url}crm.product.update"
-                payload = {"id": product_id, "fields": fields}
-                print(f"Попытка вызвать метод crm.product.update с параметрами: {payload}")
-                print(f"URL запроса: {url}")
-
-                resp = requests.post(url, json=payload)
-                print(f"➡️ Ответ Bitrix24 (crm.product.update, ID={product_id}):")
-                try:
-                    print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
-                except:
-                    print(resp.text)
+                resp = requests.post(
+                    f"{webhook_url}crm.product.update",
+                    json={"id": product_id, "fields": fields}
+                )
                 resp.raise_for_status()
                 updated_count += 1
                 print(f"✅ Товар {product_id} обновлён.")
             except Exception as e:
-                print(f"❌ Ошибка при обновлении товара {product_id}: {e}")
-                if 'resp' in locals():
-                    print(resp.text)
+                print(f"❌ Ошибка обновления товара {product_id}: {e}")
 
             row_idx += 1
 
-        print(f"🎯 Экспорт завершён: строки сделки обновлены, каталог обновлён ({updated_count} товаров).")
-    else:
-        print("ℹ️ Обновление каталога отключено. Завершено обновление строк сделки.")
+        print(f"🎯 Каталог обновлён: {updated_count} товаров.")
 
-
+        
 def export_data_КЕДО(deal_id):
     print("\n📤 ЭКСПОРТ КЕДО (цены из колонки x = 24)")
     _export_data_with_price_column(
@@ -1157,7 +883,7 @@ def _export_data_with_price_column(deal_id, price_col_index, tax_rate, tax_inclu
     ws = wb["Калькулятор"]
 
     new_rows = []
-    for row in range(3, 43):
+    for row in range(3, 196):
         product_id_raw = ws.cell(row=row, column=2).value  # B
         name = str(ws.cell(row=row, column=3).value or "").strip()
 
@@ -1192,7 +918,7 @@ def _export_data_with_price_column(deal_id, price_col_index, tax_rate, tax_inclu
             row_data["PRODUCT_ID"] = product_id
             new_rows.append(row_data)
 
-        print(f"   ✅ {name} → {price} руб, НДС: {tax_rate}, Включён: {tax_included}")
+        #print(f"   ✅ {name} → {price} руб, НДС: {tax_rate}, Включён: {tax_included}")
 
     # Отправка в Bitrix24
     try:
@@ -1201,7 +927,7 @@ def _export_data_with_price_column(deal_id, price_col_index, tax_rate, tax_inclu
             json={"id": deal_id, "rows": new_rows}
         )
         response.raise_for_status()
-        print(f"✅ Успешно обновлено ({mode})!")
+        #print(f"✅ Успешно обновлено ({mode})!")
     except Exception as e:
         print(f"❌ Ошибка при экспорте {mode}: {e}")
         if 'response' in locals():
@@ -1339,8 +1065,7 @@ def generate_KP(deal_id, template_id=46, webhook_url=WEBHOOK_URL, entity_type_id
         response.raise_for_status()
         result = response.json()
 
-        print("--- Результат вызова API ---")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+
 
         if 'result' in result and 'document' in result['result']:
             download_url = result['result']['document'].get('downloadUrlMachine')
@@ -1376,12 +1101,6 @@ def main():
 
 
 # === Запуск ===
-def get_deal(DEAL_ID):
-    url = f"{WEBHOOK_URL}crm.deal.get"
-    response = requests.post(url, json={"id": DEAL_ID})
-    response.raise_for_status()
-    return response.json().get("result", {})
-
 
 def fill_deal_sheet(worksheet, deal_data, deal_id, start_row=2):
     """
@@ -1428,7 +1147,9 @@ def fill_deal_sheet(worksheet, deal_data, deal_id, start_row=2):
         'UF_CRM_1757930626746': 'Адрес доставки',
         'UF_CRM_1757931573446': 'Адрес отгрузки',
         'UF_CRM_1757999862739': 'Дата планируемой поставки',
-        'UF_CRM_1759603831093': 'Компания отгрузки'
+        'UF_CRM_1759603831093': 'Компания отгрузки',
+        'UF_CRM_1761537686'   : 'Наценка  итоговая'
+
     }
 
     # Специальное поле: ссылка на сделку
@@ -1518,130 +1239,114 @@ def products_to_excel(deal_id, output_file=None, catalog_id=None):
     return df
 
 def create_products_from_tovary(deal_id, webhook_url=WEBHOOK_URL, output_dir=OUTPUT_DIR):
-    """Создаёт в каталоге товары для строк листа 'Товары', у которых PRODUCT_ID пустой или равен 0.
-    После создания записывает новый PRODUCT_ID обратно в Excel."""
     input_file = os.path.join(output_dir, str(deal_id), f"расчет_{deal_id}.xlsx")
     if not os.path.exists(input_file):
         print(f"❌ Файл не найден: {input_file}")
         return
 
-    wb = load_workbook(input_file, data_only=True) # data_only=True для получения значений, а не формул
+    wb = load_workbook(input_file)  # Без data_only — чтобы можно было писать обратно
     if "Товары" not in wb.sheetnames:
-        print("❌ Вкладка 'Товары' не найдена.")
+        print("❌ Лист 'Товары' не найден.")
         return
 
     ws = wb["Товары"]
+    # Заголовки — технические имена из строки 1
     headers = []
     col = 1
     while True:
         val = ws.cell(row=1, column=col).value
-        if not val:
+        if val is None:
             break
         headers.append(str(val).strip())
         col += 1
 
     if not headers:
-        print("❌ Не найдены заголовки на вкладке 'Товары'.")
+        print("❌ Не найдены заголовки на листе 'Товары'.")
         return
 
-    print(f"Заголовки: {headers}")
-    name_col_idx = None
-    id_col_idx = None
-    for i, h in enumerate(headers):
-        if h == "Название товара (в сделке)": # Используем русское имя из COLUMN_LABELS
-            name_col_idx = i + 1
-        if h == "ID товара в каталоге": # Используем русское имя из COLUMN_LABELS
-            id_col_idx = i + 1
-
-    if name_col_idx is None:
-        print("❌ Не найден столбец 'Название товара (в сделке)'.")
-        return
-    if id_col_idx is None:
-        print("❌ Не найден столбец 'ID товара в каталоге'.")
+    try:
+        id_col_idx = headers.index("PRODUCT_ID") + 1
+        name_col_idx = headers.index("PRODUCT_NAME") + 1
+    except ValueError as e:
+        print(f"❌ Отсутствует обязательный столбец: {e}")
         return
 
-    row_idx = 3 # данные с 3-й строки
-    new_product_ids = {} # Словарь для хранения ID новых товаров
-
+    row_idx = 3
+    created_count = 0
     while True:
-        # Проверяем, пустое ли имя товара (NAME), и если да - прерываем цикл
         name_val = ws.cell(row=row_idx, column=name_col_idx).value
         if name_val is None or str(name_val).strip() == "":
-             print(f"ℹ️ Строка {row_idx}: Название товара пустое. Прерывание обработки листа 'Товары'.")
-             break # Прерываем цикл, если имя пустое
+            break
 
         product_id_val = ws.cell(row=row_idx, column=id_col_idx).value
-        is_manual = False
-        if product_id_val is None or str(product_id_val).strip() == "":
-            is_manual = True
-        else:
-            try:
-                if float(product_id_val) == 0:
-                    is_manual = True
-            except (ValueError, TypeError):
-                pass
+        is_manual = (
+            product_id_val is None
+            or str(product_id_val).strip() == ""
+            or (isinstance(product_id_val, (int, float)) and float(product_id_val) == 0)
+        )
 
         if is_manual:
-            # Получаем данные строки
+            # Собираем данные строки
             row_data = {}
-            for col_idx, key in enumerate(headers, start=1):
-                cell_value = ws.cell(row=row_idx, column=col_idx).value
-                if cell_value is not None: # Сохраняем все непустые значения
-                    row_data[key] = cell_value
+            for i, key in enumerate(headers):
+                val = ws.cell(row=row_idx, column=i + 1).value
+                if val is not None:
+                    row_data[key] = val
 
-            name_from_sheet = row_data.get("Название товара (в сделке)", f"Товар из сделки {deal_id}, строка {row_idx}")
-            # Проверяем, не является ли полученное имя формулой
-            if isinstance(name_from_sheet, str) and name_from_sheet.startswith('='):
-                print(f"⚠️ Название в строке {row_idx} содержит формулу: '{name_from_sheet}'. Пропуск создания товара.")
+            name = str(row_data.get("PRODUCT_NAME", f"Товар {deal_id}-{row_idx}")).strip()
+            if name.startswith("="):
+                print(f"⚠️ Пропуск строки {row_idx}: название содержит формулу")
                 row_idx += 1
-                continue # Пропускаем создание товара для этой строки
+                continue
 
-            fields_to_send = {
-                "NAME": name_from_sheet,
-                "PRICE": row_data.get("Цена в сделке", 0),
-                "CURRENCY_ID": row_data.get("Валюта", "RUB"),
-                "VAT_INCLUDED": row_data.get("Налог включён в цену", "Y"),
-            }
+            fields = {"NAME": name}
+            if row_data.get("PRICE") not in (None, ""):
+                try:
+                    fields["PRICE"] = float(row_data["PRICE"])
+                except:
+                    pass
+            if row_data.get("CURRENCY_ID"):
+                fields["CURRENCY_ID"] = str(row_data["CURRENCY_ID"])
+            if row_data.get("VAT_INCLUDED") in ("Y", "N"):
+                fields["VAT_INCLUDED"] = row_data["VAT_INCLUDED"]
 
-            # Добавляем PROPERTY_XXX, исключая PROPERTY_202, так как оно обновляется отдельно в export_data
-            for key, value in row_data.items():
-                if key.startswith("PROPERTY_") and key != "PROPERTY_202" and value is not None and str(value).strip() != "":
-                    fields_to_send[key] = {"value": value}
+            # PROPERTY_XXX
+            for key, val in row_data.items():
+                if key.startswith("PROPERTY_") and key != "PROPERTY_202" and val not in (None, ""):
+                    fields[key] = {"value": val}
 
-            print(f"Создаём товар: {fields_to_send}")
+            # Создаём товар
             try:
-                url = f"{webhook_url}crm.product.add"
-                payload = {"fields": fields_to_send}
-                resp = requests.post(url, json=payload)
+                resp = requests.post(f"{webhook_url}crm.product.add", json={"fields": fields})
                 resp.raise_for_status()
-                new_product_id = resp.json().get("result")
-                if new_product_id:
-                    new_product_ids[row_idx] = new_product_id # Сохраняем ID нового товара
-                    print(f"✅ Создан товар ID={new_product_id} для строки {row_idx}")
+                new_id = resp.json().get("result")
+                if new_id:
+                    ws.cell(row=row_idx, column=id_col_idx, value=new_id)
+                    created_count += 1
+                    print(f"✅ Создан товар ID={new_id} для строки {row_idx}")
                 else:
-                    print(f"❌ Не удалось получить ID созданного товара для строки {row_idx}. Ответ: {resp.json()}")
+                    print(f"⚠️ Не удалось получить ID для строки {row_idx}")
             except Exception as e:
-                print(f"❌ Ошибка при создании товара из строки {row_idx}: {e}")
+                print(f"❌ Ошибка создания товара в строке {row_idx}: {e}")
 
         row_idx += 1
 
-    # Записываем новые ID в Excel
-    if new_product_ids:
-        for row_num, prod_id in new_product_ids.items():
-            ws.cell(row=row_num, column=id_col_idx, value=prod_id)
+    if created_count > 0:
         wb.save(input_file)
-        print(f"✅ Записаны новые ID товаров в файл {input_file}")
-
-
+        print(f"💾 Excel обновлён: добавлено {created_count} новых PRODUCT_ID.")
+    else:
+        print("ℹ️ Новых товаров для создания не найдено.")
+        
 
 if __name__ == "__main__":
-    import_data(DEAL_ID)
+    deal_id=13968
+    #import_data(deal_id)
     #create_products_from_tovary(DEAL_ID)
-
+    generate_kp_lsho(deal_id)
     # fill_excel(DEAL_ID)
     # deal_to_exel(DEAL_ID,deal)
     # auto_update_check()
     # import_data(DEAL_ID)
-    #export_data(DEAL_ID)
+    #export_data(deal_id)
     # generate_3kp(DEAL_ID)
     # main()
