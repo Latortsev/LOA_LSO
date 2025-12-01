@@ -7,19 +7,13 @@ from openpyxl.styles import Font, PatternFill
 import json  # Импортируем json для сериализации сложных объектов
 import os
 import shutil
-import subprocess
-import sys
-import threading
-import time
+
 from pathlib import Path
-from datetime import datetime
-from urllib.parse import urljoin
+
 import logging
 import builtins
 
-def update():
-    from updater import main as updater_main
-    updater_main()
+
 
 # Включить логирование: DEBUG, INFO, WARNING...
 # Отключить: logging.CRITICAL + 1
@@ -34,7 +28,9 @@ def fast_print(*args, **kwargs):
 
 builtins.print = fast_print
 
-
+def update():
+    from updater import update
+    update()
 
 
 
