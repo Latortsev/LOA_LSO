@@ -1,15 +1,16 @@
 # updater.py
-import os
+
 import sys
 import time
 import shutil
 import subprocess
-from pathlib import Path
-from urllib.parse import urljoin
+
 from email.utils import parsedate_to_datetime
-
+from urllib.parse import urljoin, quote
 import requests
-
+import base64
+import os
+from pathlib import Path
 
 class Updater:
     def __init__(self, base_url: str, files_to_update: list[str], local_dir: str):
@@ -125,18 +126,113 @@ class Updater:
             print("Обновлений не обнаружено.")
         print("=== КОНЕЦ ПРОВЕРКИ ОБНОВЛЕНИЙ ===")
 
-if __name__ == "__main__":
+    def upload(self, token: str, owner: str, repo: str, branch: str = "main"):
+        # --- Проверка токена и доступа к репозиторию ---
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+        }
+        repo_url = f"https://api.github.com/repos/{owner}/{repo}"
+
+        print("🔍 Проверка доступа к репозиторию...")
+        resp = requests.get(repo_url, headers=headers)
+        if resp.status_code == 404:
+            print(f"❌ Репозиторий не найден: {owner}/{repo}")
+            print("   Убедитесь, что:")
+            print("   - Имя владельца и репозитория написаны правильно")
+            print("   - Репозиторий существует")
+            print("   - Если репозиторий приватный — токен имеет доступ")
+            return
+        elif resp.status_code == 401:
+            print("❌ Недействительный или отсутствующий токен.")
+            print(
+                "   Убедитесь, что GITHUB_TOKEN задан и имеет scope 'repo' (или 'public_repo' для публичных репозиториев).")
+            return
+        elif resp.status_code != 200:
+            print(f"❌ Ошибка доступа к репозиторию ({resp.status_code}): {resp.json().get('message', 'Unknown error')}")
+            return
+
+        repo_info = resp.json()
+        print(f"✅ Доступ к репозиторию подтверждён: {repo_info['full_name']}")
+        # if not repo_info.get("permissions", {}).get("push", False):
+        #     print("⚠️  Внимание: у токена нет прав на запись (push) в репозиторий!")
+        #     print("   Обновление файлов не удастся.")
+        #     return
+        print(repo_info)
+
+        # --- Проверка существования ветки ---
+        branches_url = f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}"
+        branch_resp = requests.get(branches_url, headers=headers)
+        if branch_resp.status_code == 404:
+            print(f"❌ Ветка '{branch}' не существует в репозитории.")
+            print("   Убедитесь, что имя ветки указано верно (по умолчанию: 'main' или 'master').")
+            return
+        elif branch_resp.status_code != 200:
+            print(f"⚠️  Не удалось проверить ветку '{branch}' ({branch_resp.status_code})")
+        else:
+            print(f"✅ Ветка '{branch}' существует.")
+
+        print("➡️  Приступаю к загрузке файлов...\n")
+
+        api_base = f"https://api.github.com/repos/{owner}/{repo}/contents/"  # ← исправлено!
+
+        for file in self.files_to_update:
+            local_path = Path(self.local_dir) / file
+            if not local_path.exists():
+                print(f"⚠ {file}: не найден локально, пропускаем")
+                continue
+
+            with open(local_path, "rb") as f:
+                content = f.read()
+            encoded_content = base64.b64encode(content).decode("utf-8")
+
+            # Нормализуем и кодируем путь
+            remote_path = quote(str(Path(file).as_posix()), safe="/")
+            url = api_base + remote_path
+            params = {"ref": branch}
+
+            # Получаем текущий SHA, если файл существует
+            resp = requests.get(url, headers=headers, params=params)
+            data = {
+                "message": f"Update {file} via updater.py",
+                "content": encoded_content,
+                "branch": branch
+            }
+
+            if resp.status_code == 200:
+                data["sha"] = resp.json()["sha"]
+            elif resp.status_code != 404:
+                print(f"❌ {file}: ошибка при проверке существования ({resp.status_code}) — {resp.text}")
+                continue
+
+            # Загружаем/обновляем
+            upload_resp = requests.put(url, headers=headers, json=data)
+            if upload_resp.status_code in (200, 201):
+                print(f"✅ {file} успешно загружен в {owner}/{repo}")
+            else:
+                print(f"❌ {file}: ошибка загрузки ({upload_resp.status_code}) — {upload_resp.json()}")
+
+def update():
     import os
-    UPDATE_BASE_URL = "https://raw.githubusercontent.com/Latortsev/LOA_LSO/main/"
-    FILES_TO_UPDATE = [
-        "main.py",
-        "gui.pyw",
-        "install.bat",
-        "Шаблоны/Расчет_шаблон_V1.xlsx",
-        "README.docx",
-        "requirements.txt"
-    ]
-    LOCAL_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    from config import UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR
     updater = Updater(UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR)
     updater.auto_update_check()
+
+def upload():
+    import os
+    from config import UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR, GITHUB_TOKEN
+    updater = Updater(UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR)
+    updater.upload(
+        token=GITHUB_TOKEN,
+        owner="Latortsev",
+        repo="LOA_LSO",
+        branch="main"
+    )
+
+
+if __name__ == "__main__":
+    upload()
+
+
 
