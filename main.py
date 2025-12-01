@@ -13,7 +13,8 @@ from pathlib import Path
 import logging
 import builtins
 
-
+from config import OUTPUT_DIR, TEMPLATE_FILE, DEAL_ID, COLUMN_LABELS
+from key import WEBHOOK_URL
 
 # Включить логирование: DEBUG, INFO, WARNING...
 # Отключить: logging.CRITICAL + 1
