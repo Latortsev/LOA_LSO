@@ -1,5 +1,6 @@
 # === Настройки обновления ===
 import os
+
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/Latortsev/LOA_LSO/main/"
 
 FILES_TO_UPDATE = [
@@ -13,7 +14,6 @@ FILES_TO_UPDATE = [
     "config.py",
 ]
 LOCAL_APP_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 # === Настройки ===
 
@@ -58,9 +58,6 @@ COLUMN_LABELS = {
     "PROPERTY_250": "Сертификаты / Декларации соответствия",
     "PROPERTY_248": "Код КТРУ",
     "PROPERTY_246": "Код ОКПД2",
-
-
-
 
     "PRODUCT_DESCRIPTION": "Описание товара",
     "PROPERTY_194": "Техническое описание",
@@ -112,8 +109,7 @@ COLUMN_LABELS = {
     "PROPERTY_240": "Актуальная цена",
     "PROPERTY_202": "Дата расчета",
 
-
     # === Служебные поля из твоего кода ===
-    #"ID строки в сделке": "ID строки в сделке",
-    #"Из каталога?": "Из каталога?",
+    # "ID строки в сделке": "ID строки в сделке",
+    # "Из каталога?": "Из каталога?",
 }
