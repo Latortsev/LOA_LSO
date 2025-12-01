@@ -365,7 +365,7 @@ class DealApp(ctk.CTk):
             self.safe_call(self.main_module.generate_kp_verch, deal_id, f"КП Верхозина для {deal_id} создано.")
 
     def update(self):
-        self.safe_call(self.main_module.update,success_msg=f"Приложение обновлено")
+        self.main_module.update()
 
 
 if __name__ == "__main__":
