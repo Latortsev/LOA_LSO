@@ -205,7 +205,7 @@ class DealApp(ctk.CTk):
             ("📂 Открыть папку", "Открыть папку с результатами", self.open_folder),
             ("📄 КП Верх", "Создать КП для верха", self.generate_kp_verch),
             ("📋 КП ЛШО", "Создать КП для ЛШО", self.generate_kp_lsho),
-            ("🔄 Обновить", "Обновить данные", self.refresh_data),
+            ("🔄 Обновить", "Обновить приложение", self.update),
         ]
         self.buttons = []
         # Распределяем кнопки по строкам (по 2 в строке)
@@ -364,6 +364,8 @@ class DealApp(ctk.CTk):
         if deal_id := self.get_deal_id():
             self.safe_call(self.main_module.generate_kp_verch, deal_id, f"КП Верхозина для {deal_id} создано.")
 
+    def update(self):
+        self.safe_call(self.main_module.update,success_msg=f"Приложение обновлено")
 
 
 if __name__ == "__main__":
