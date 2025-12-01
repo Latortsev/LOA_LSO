@@ -221,7 +221,8 @@ def update():
 
 def upload():
     import os
-    from config import UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR, GITHUB_TOKEN
+    from config import UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR
+    from key import GITHUB_TOKEN
     updater = Updater(UPDATE_BASE_URL, FILES_TO_UPDATE, LOCAL_APP_DIR)
     updater.upload(
         token=GITHUB_TOKEN,
